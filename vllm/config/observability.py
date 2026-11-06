@@ -11,7 +11,10 @@ from pydantic import Field, field_validator, model_validator
 
 from vllm import version
 from vllm.config.utils import config
+from vllm.logger import init_logger
 from vllm.utils.hashing import safe_hash
+
+logger = init_logger(__name__)
 
 DetailedTraceModules = Literal["model", "worker", "all"]
 
@@ -84,9 +87,9 @@ class ObservabilityConfig:
     dispatch modes, and their observed frequencies at every logging interval)."""
 
     enable_layerwise_nvtx_tracing: bool = False
-    """Enable layerwise NVTX tracing. This traces the execution of each layer or
-    module in the model and attach information such as input/output shapes to
-    nvtx range markers. Noted that this doesn't work with CUDA graphs enabled."""
+    """Deprecated: per-layer tracing was only implemented by the removed Model Runner
+    V1. This now only adds NVTX range markers around calls to the compiled model, and
+    will be removed in a future release. It doesn't work with CUDA graphs enabled."""
 
     enable_mfu_metrics: bool = False
     """Enable Model FLOPs Utilization (MFU) metrics."""
@@ -218,5 +221,11 @@ class ObservabilityConfig:
         if self.collect_detailed_traces and not self.otlp_traces_endpoint:
             raise ValueError(
                 "collect_detailed_traces requires `--otlp-traces-endpoint` to be set."
+            )
+        if self.enable_layerwise_nvtx_tracing:
+            logger.warning_once(
+                "enable_layerwise_nvtx_tracing is deprecated and no longer traces "
+                "each layer; it only marks calls to the compiled model. It will be "
+                "removed in a future release."
             )
         return self
